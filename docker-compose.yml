@@ -1,0 +1,15 @@
+services:
+  wdb:
+    build: .
+    container_name: wdb
+    volumes:
+      - .:/wdb
+    working_dir: /wdb
+    stdin_open: true
+    tty: true
+    # Allows gdb, perf, strace inside container
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+    command: /bin/bash
