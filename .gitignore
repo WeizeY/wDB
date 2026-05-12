@@ -23,7 +23,6 @@
 *.dll
 *.so.*
 
-
 # Fortran module files
 *.mod
 *.smod
@@ -39,18 +38,23 @@
 *.out
 *.app
 
-# Build directories
+# Build directories (out-of-source builds only)
 build/
 Build/
 build-*/
 
-# CMake generated files
+# CMake generated files (in case of accidental in-source generation)
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
-Makefile
 install_manifest.txt
 compile_commands.json
+CTestTestfile.cmake
+Testing/
+
+# Generated Makefile (only allow our hand-written wrapper at repo root)
+**/Makefile
+!/Makefile
 
 # Temporary files
 *.tmp
@@ -65,5 +69,16 @@ vcpkg_installed/
 *.dwo
 
 # test output & cache
-Testing/
 .cache/
+
+# wDB runtime artefacts
+*.data
+*.db
+*.wal
+*.wdb
+wdb.data
+
+# Editor / IDE
+.vscode/
+.idea/
+*.code-workspace
