@@ -57,7 +57,6 @@ public:
 
 private:
     int fd_;
-    std::string path_;
     uint64_t valid_end_;  // updated by replay(); 0 until replay() runs
     bool replayed_;
 };

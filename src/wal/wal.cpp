@@ -64,7 +64,7 @@ ssize_t pread_full(int fd, void* buf, size_t n, off_t off) {
 }  // namespace
 
 Wal::Wal(const std::string& path)
-    : fd_(-1), path_(path), valid_end_(0), replayed_(false) {
+    : fd_(-1), valid_end_(0), replayed_(false) {
     fd_ = ::open(path.c_str(), O_RDWR | O_CREAT | O_APPEND, 0644);
     if (fd_ < 0) {
         throw std::system_error(errno, std::generic_category(), "open " + path);
