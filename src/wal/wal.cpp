@@ -49,7 +49,8 @@ ssize_t pread_full(int fd, void* buf, size_t n, off_t off) {
     size_t total = 0;
     auto* p = static_cast<uint8_t*>(buf);
     while (total < n) {
-        ssize_t r = ::pread(fd, p + total, n - total, off + total);
+        ssize_t r = ::pread(fd, p + total, n - total,
+                            off + static_cast<off_t>(total));
         if (r == 0) break;            // EOF
         if (r < 0) {
             if (errno == EINTR) continue;
@@ -97,7 +98,7 @@ void Wal::append(OpType op, std::string_view key, std::string_view value) {
     std::memcpy(p, &ksz, 2); p += 2;
     std::memcpy(p, &vsz, 4); p += 4;
     if (ksz) { std::memcpy(p, key.data(), ksz); p += ksz; }
-    if (vsz) { std::memcpy(p, value.data(), vsz); p += vsz; }
+    if (vsz) { std::memcpy(p, value.data(), vsz); }
 
     const uint32_t crc = crc32(frame.data() + 4, payload_len);
     std::memcpy(frame.data() + 4 + payload_len, &crc, 4);
