@@ -67,7 +67,10 @@ std::vector<RecordView> Page::records() const {
     out.reserve(h.num_records);
 
     size_t off = sizeof(PageHeader);
-    const size_t end = h.free_space_offset;
+    // Clamp to kPageSize: header field is uint16 (max 65535) but our buffer is
+    // 4096. A corrupt page that slipped past the checksum check (e.g. external
+    // tampering) must not let us read past the buffer.
+    const size_t end = std::min<size_t>(h.free_space_offset, kPageSize);
     for (uint16_t i = 0; i < h.num_records; ++i) {
         if (off + kRecordHeaderSize > end) break;
         const uint8_t* p = buf_.data() + off;
@@ -101,7 +104,7 @@ std::optional<std::string> Page::find(std::string_view key) const {
 bool Page::tombstone(std::string_view key) {
     const PageHeader h = header();
     size_t off = sizeof(PageHeader);
-    const size_t end = h.free_space_offset;
+    const size_t end = std::min<size_t>(h.free_space_offset, kPageSize);
     for (uint16_t i = 0; i < h.num_records; ++i) {
         if (off + kRecordHeaderSize > end) break;
         uint8_t* p = buf_.data() + off;
