@@ -12,4 +12,7 @@ function(wdb_add_test name)
   gtest_discover_tests(${name})
 endfunction()
 
-wdb_add_test(test_record wdb_storage)
+wdb_add_test(test_record        wdb_storage)
+wdb_add_test(test_page          wdb_storage)
+wdb_add_test(test_file_manager  wdb_storage)
+wdb_add_test(test_heap_storage  wdb_storage)
