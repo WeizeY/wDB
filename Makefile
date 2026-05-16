@@ -5,8 +5,9 @@ BUILD_DIR    ?= build
 BUILD_TYPE   ?= Debug
 GEN          ?= Ninja
 DB_FILE      ?= wdb.data
+COV_DIR      ?= build-coverage
 
-.PHONY: all configure build run clean rebuild release test fmt
+.PHONY: all configure build run clean rebuild release test fmt coverage coverage-html coverage-clean
 
 all: build
 
@@ -26,10 +27,36 @@ test: build
 	cd $(BUILD_DIR) && ctest --output-on-failure
 
 clean:
-	rm -rf build build-release
+	rm -rf build build-release $(COV_DIR)
 
 rebuild: clean build
 
-# Format all source files in place (requires clang-format).
 fmt:
-	find src -type f \( -name '*.h' -o -name '*.cpp' \) -print0 | xargs -0 clang-format -i
+	find src tests -type f \( -name '*.h' -o -name '*.cpp' \) -print0 | xargs -0 clang-format -i
+
+# Coverage: configure separate build dir with --coverage flags, run all tests,
+# then summarise. `make coverage` prints the per-file table; `make coverage-html`
+# additionally generates an HTML report under $(COV_DIR)/coverage-html/.
+coverage:
+	cmake -B $(COV_DIR) -G $(GEN) -DWDB_COVERAGE=ON -DCMAKE_BUILD_TYPE=Debug -S .
+	cmake --build $(COV_DIR)
+	cd $(COV_DIR) && ctest --output-on-failure
+	gcovr --root . \
+	      --filter '^src/' \
+	      --exclude '.*main\.cpp' \
+	      --exclude '.*\.h$$' \
+	      --print-summary \
+	      --txt $(COV_DIR)/coverage.txt
+	@echo "---"
+	@cat $(COV_DIR)/coverage.txt
+
+coverage-html: coverage
+	mkdir -p $(COV_DIR)/coverage-html
+	gcovr --root . \
+	      --filter '^src/' \
+	      --exclude '.*main\.cpp' \
+	      --html-details $(COV_DIR)/coverage-html/index.html
+	@echo "HTML report: $(COV_DIR)/coverage-html/index.html"
+
+coverage-clean:
+	rm -rf $(COV_DIR)
