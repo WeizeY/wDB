@@ -13,6 +13,8 @@ RUN apt-get update && apt-get install -y \
     clang-tidy \
     libgtest-dev \
     libgmock-dev \
+    lcov \
+    gcovr \
     git \
     vim \
     curl \
