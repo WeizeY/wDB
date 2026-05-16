@@ -7,6 +7,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 namespace wdb::storage {
@@ -30,6 +31,8 @@ struct PageHeader {
     uint64_t lsn;  // unused in Phase 1, reserved for WAL
 };
 static_assert(sizeof(PageHeader) == 24, "PageHeader must be 24 bytes");
+static_assert(std::is_trivially_copyable_v<PageHeader>,
+              "PageHeader must be trivially copyable for memcpy I/O");
 
 class Page {
 public:
@@ -40,8 +43,12 @@ public:
     // Initialise as a fresh empty page of given id/type.
     void init(PageId id, PageType type);
 
-    PageHeader& header();
-    const PageHeader& header() const;
+    // Read the header by value. Safe under strict aliasing — the byte buffer
+    // is not punned to PageHeader*; we copy via memcpy.
+    PageHeader header() const;
+
+    // Overwrite the header in place.
+    void set_header(const PageHeader& h);
 
     PageId id() const { return header().page_id; }
     PageType type() const { return header().page_type; }

@@ -10,7 +10,7 @@ Page::Page() = default;
 
 void Page::init(PageId id, PageType type) {
     buf_.fill(0);
-    auto& h = header();
+    PageHeader h{};
     h.page_id = id;
     h.page_type = type;
     h.num_records = 0;
@@ -18,14 +18,17 @@ void Page::init(PageId id, PageType type) {
     h.reserved = 0;
     h.checksum = 0;
     h.lsn = 0;
+    set_header(h);
 }
 
-PageHeader& Page::header() {
-    return *reinterpret_cast<PageHeader*>(buf_.data());
+PageHeader Page::header() const {
+    PageHeader h{};
+    std::memcpy(&h, buf_.data(), sizeof(PageHeader));
+    return h;
 }
 
-const PageHeader& Page::header() const {
-    return *reinterpret_cast<const PageHeader*>(buf_.data());
+void Page::set_header(const PageHeader& h) {
+    std::memcpy(buf_.data(), &h, sizeof(PageHeader));
 }
 
 size_t Page::free_space() const {
@@ -39,7 +42,7 @@ bool Page::append_record(std::string_view key, std::string_view value) {
     const size_t need = encoded_record_size(key.size(), value.size());
     if (need > free_space()) return false;
 
-    auto& h = header();
+    PageHeader h = header();
     uint8_t* p = buf_.data() + h.free_space_offset;
 
     const uint8_t flags = 0;
@@ -54,16 +57,18 @@ bool Page::append_record(std::string_view key, std::string_view value) {
 
     h.free_space_offset = static_cast<uint16_t>(h.free_space_offset + need);
     h.num_records = static_cast<uint16_t>(h.num_records + 1);
+    set_header(h);
     return true;
 }
 
 std::vector<RecordView> Page::records() const {
+    const PageHeader h = header();
     std::vector<RecordView> out;
-    out.reserve(header().num_records);
+    out.reserve(h.num_records);
 
     size_t off = sizeof(PageHeader);
-    const size_t end = header().free_space_offset;
-    for (uint16_t i = 0; i < header().num_records; ++i) {
+    const size_t end = h.free_space_offset;
+    for (uint16_t i = 0; i < h.num_records; ++i) {
         if (off + kRecordHeaderSize > end) break;
         const uint8_t* p = buf_.data() + off;
         const uint8_t flags = p[0];
@@ -94,9 +99,10 @@ std::optional<std::string> Page::find(std::string_view key) const {
 }
 
 bool Page::tombstone(std::string_view key) {
+    const PageHeader h = header();
     size_t off = sizeof(PageHeader);
-    const size_t end = header().free_space_offset;
-    for (uint16_t i = 0; i < header().num_records; ++i) {
+    const size_t end = h.free_space_offset;
+    for (uint16_t i = 0; i < h.num_records; ++i) {
         if (off + kRecordHeaderSize > end) break;
         uint8_t* p = buf_.data() + off;
         const uint8_t flags = p[0];
@@ -135,7 +141,9 @@ uint32_t Page::compute_checksum() const {
 }
 
 void Page::update_checksum() {
-    header().checksum = compute_checksum();
+    PageHeader h = header();
+    h.checksum = compute_checksum();
+    set_header(h);
 }
 
 bool Page::verify_checksum() const {
