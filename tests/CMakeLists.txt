@@ -1,7 +1,15 @@
 find_package(GTest REQUIRED)
+include(GoogleTest)
 
-# Placeholder — add test executables here as you implement each phase
-# Example:
-# add_executable(test_storage storage_test.cpp)
-# target_link_libraries(test_storage GTest::GTest GTest::Main wdb_storage)
-# add_test(NAME storage COMMAND test_storage)
+# Helper to register a single-file gtest binary that links specified libs.
+function(wdb_add_test name)
+  add_executable(${name} ${name}.cpp)
+  target_link_libraries(${name} PRIVATE
+    GTest::gtest GTest::gtest_main
+    ${ARGN}
+  )
+  target_include_directories(${name} PRIVATE ${CMAKE_SOURCE_DIR}/tests)
+  gtest_discover_tests(${name})
+endfunction()
+
+wdb_add_test(test_record wdb_storage)
