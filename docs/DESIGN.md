@@ -139,6 +139,25 @@ At this stage:
 
 ## Phase 2 — Write-Ahead Log (WAL)
 
+### Known limitations of the Phase 2 design
+
+These are accepted trade-offs, listed so they aren't rediscovered as bugs:
+
+- **WAL guarantees op durability, not page integrity.** A torn `pwrite` to a heap
+  page (process killed mid-write, kernel buffer flushed partially) can leave the
+  data page corrupt on disk. The page checksum will detect it on next read, but
+  WAL replay alone can't reconstruct the page contents because we don't log
+  before/after images — only logical ops. Production fix: double-write buffer
+  (InnoDB) or shadow paging (LMDB). Out of scope for Phase 2.
+
+- **WAL grows until clean open.** A long-running process accumulates WAL records
+  with no rotation. The Phase 2.4 entry below covers this.
+
+- **fsync ordering on the data file** is best-effort. Pages are flushed only on
+  the next clean open (after WAL replay). A crash in normal operation leaves
+  pages potentially behind the WAL; recovery brings them forward via replay.
+
+
 This is where it becomes a real database.
 
 ### 2.1 WAL Entry Format

@@ -6,7 +6,7 @@ Key-value storage → WAL → B+ tree index → buffer pool → optional SQL lay
 
 See [`docs/DESIGN.md`](docs/DESIGN.md) for full architecture and build order.
 
-**Current status:** Phase 1 complete — pages, file manager, heap storage, REPL.
+**Current status:** Phase 2 complete — pages, file manager, heap storage, REPL, write-ahead log + crash recovery.
 
 ---
 
@@ -88,15 +88,24 @@ The data file persists across runs — close and reopen, your data is still ther
 
 ---
 
-## Phase 1 Notes
+## Engine Notes (Phases 1–2)
 
 - **Page size:** 4096 bytes
-- **File layout:** page 0 = meta (magic, version, num_pages); pages 1..N = data
+- **Data file layout:** page 0 = meta (magic, version, num_pages); pages 1..N = data
 - **Record format:** `[flags(1) | key_size(2) | value_size(4) | key | value]`
-- **Storage:** linear scan over all data pages (no index yet)
+- **Storage:** linear scan over all data pages (no index yet — Phase 3)
 - **Update semantics:** put(k,v) tombstones any prior live entry for k, then appends
-- **Checksum:** FNV-1a over the whole page (excluding the checksum field), verified on every read
-- **Not yet crash-safe:** no WAL — that's Phase 2
+- **Page checksum:** FNV-1a over the whole page (excluding the checksum field), verified on every read
+- **WAL:** append-only log at `<data>.wal`. Frame = `[u32 len][payload][u32 CRC32]`. fsync per mutation
+- **Recovery:** WAL replay on open is idempotent. Torn final frame is detected (length-bound or CRC mismatch) and trimmed
+- **Checkpoint:** on clean open, after replay + heap fsync, the WAL is reset
+
+### Known limitations (deferred phases)
+
+- **Torn data-page writes** — a crash mid-`pwrite` to a heap page can leave the page corrupt; checksum catches it on next read but recovery from WAL alone won't fix the page. Future fix: double-write buffer or shadow paging
+- **WAL has no rotation** — log grows until the next clean open. Phase 2.4
+- **No buffer pool** — every read pulls a fresh page from disk. Phase 4
+- **No concurrency** — single-thread only. Phase 6
 
 ---
 
@@ -104,15 +113,14 @@ The data file persists across runs — close and reopen, your data is still ther
 
 ```
 src/
-  storage/      Phase 1 ✅ — pages, file_manager, heap_storage, records
+  storage/      Phase 1 — pages, file_manager, heap_storage, records
   wal/          Phase 2 — write-ahead log
-  index/        Phase 3 — B+ tree
-  buffer/       Phase 4 — buffer pool / page cache
-  query/        Phase 5 — parser + executor
-  concurrency/  Phase 6 — locks, thread pool
   db/           Top-level Database facade
 docs/
   DESIGN.md     Full design document
-tests/          Unit, crash, fuzz tests (to be filled in Phase 8)
+tests/          Unit tests (gtest); crash + fuzz arrive in Phase 8
 Makefile        Thin wrapper around cmake (see "Build & Run")
 ```
+
+Future-phase modules (`index/`, `buffer/`, `query/`, `concurrency/`) will be added
+when their phase begins, rather than carried as empty stubs.
