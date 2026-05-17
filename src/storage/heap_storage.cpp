@@ -20,6 +20,10 @@ void HeapStorage::tombstone_all(std::string_view key) {
 }
 
 void HeapStorage::put(std::string_view key, std::string_view value) {
+    // Phase 2 has no key→page index; every put walks all data pages twice
+    // (once to tombstone the prior live entry, once to find space). This is
+    // O(N) reads + writes per put, by design. Phase 3 (B+ tree index) replaces
+    // both passes with a single tree lookup.
     tombstone_all(key);
 
     const size_t need = encoded_record_size(key.size(), value.size());
