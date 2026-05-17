@@ -19,7 +19,7 @@ public:
     explicit Database(const std::string& path);
 
     void put(std::string_view key, std::string_view value);
-    std::optional<std::string> get(std::string_view key);
+    std::optional<std::string> get(std::string_view key) const;
     bool del(std::string_view key);
 
     // Diagnostics.

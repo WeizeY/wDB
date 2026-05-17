@@ -35,7 +35,7 @@ void Database::put(std::string_view k, std::string_view v) {
     heap_.put(k, v);
 }
 
-std::optional<std::string> Database::get(std::string_view k) {
+std::optional<std::string> Database::get(std::string_view k) const {
     return heap_.get(k);
 }
 
