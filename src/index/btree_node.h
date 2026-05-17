@@ -27,6 +27,10 @@ enum class NodeType : uint8_t {
 // Records are appended at (data_offset - record_size) and never moved; deleting
 // a slot just shifts the slot array. Records can therefore leak space inside a
 // node; that space is reclaimed on split.
+//
+// Convention for an internal node with N keys and N+1 children:
+//   link    = leftmost child         (keys < k[0])
+//   slot[i] = (k[i], c[i+1])         (c[i+1] holds keys in [k[i], k[i+1]))
 struct NodeHeader {
     uint8_t node_type;
     uint8_t reserved_a;
@@ -65,6 +69,7 @@ public:
     size_t free_space() const;
 
     void init_as_leaf();
+    void init_as_internal();
 
     // ---- Leaf ----
     struct LeafEntry {
@@ -82,8 +87,25 @@ public:
     // Returns the separator key (smallest key now in `right`).
     std::string leaf_split_into(BTreeNode& right);
 
+    // ---- Internal ----
+    struct InternalEntry {
+        std::string_view key;
+        PageId right_child;
+    };
+    InternalEntry internal_entry(uint16_t i) const;
+
+    bool internal_insert(std::string_view key, PageId right_child);
+    PageId internal_find_child(std::string_view key) const;
+
+    // Move the upper half of entries into `right`; the median is removed from
+    // both halves and returned as the separator to push up to the parent.
+    std::string internal_split_into(BTreeNode& right);
+
     static size_t leaf_record_size(size_t key_size, size_t value_size) {
         return 2 + 4 + key_size + value_size;
+    }
+    static size_t internal_record_size(size_t key_size) {
+        return 2 + 4 + key_size;
     }
 
 private:
@@ -96,6 +118,7 @@ private:
     void set_slot(uint16_t i, uint16_t s);
 
     uint16_t lower_bound_leaf(std::string_view search_key) const;
+    uint16_t lower_bound_internal(std::string_view search_key) const;
 };
 
 }  // namespace wdb::index

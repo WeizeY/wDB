@@ -62,6 +62,15 @@ void BTreeNode::init_as_leaf() {
     write_node_header(h);
 }
 
+void BTreeNode::init_as_internal() {
+    NodeHeader h{};
+    h.node_type = static_cast<uint8_t>(NodeType::Internal);
+    h.num_keys = 0;
+    h.data_offset = static_cast<uint16_t>(storage::kPageSize);
+    h.link = 0;
+    write_node_header(h);
+}
+
 // ---- Leaf ----
 
 BTreeNode::LeafEntry BTreeNode::leaf_entry(uint16_t i) const {
@@ -110,7 +119,7 @@ bool BTreeNode::leaf_insert(std::string_view key, std::string_view value) {
     if (rec_size + kSlotSize > free_space()) return false;
 
     h = read_node_header();
-    i = lower_bound_leaf(key);
+    i = lower_bound_leaf(key);  // re-find after potential removal
 
     const uint16_t new_data_offset = static_cast<uint16_t>(h.data_offset - rec_size);
     uint8_t* p = page_.data() + new_data_offset;
@@ -172,6 +181,7 @@ std::string BTreeNode::leaf_split_into(BTreeNode& right) {
     h.num_keys = split;
     write_node_header(h);
 
+    // Chain leaves: right.link = old this.link; this.link = right.id
     NodeHeader rh = right.read_node_header();
     rh.link = h.link;
     right.write_node_header(rh);
@@ -181,6 +191,105 @@ std::string BTreeNode::leaf_split_into(BTreeNode& right) {
     write_node_header(nh);
 
     return std::string(right.leaf_entry(0).key);
+}
+
+// ---- Internal ----
+
+BTreeNode::InternalEntry BTreeNode::internal_entry(uint16_t i) const {
+    const uint16_t off = get_slot(i);
+    const uint8_t* p = page_.data() + off;
+    uint16_t ksz = 0;
+    uint32_t child = 0;
+    std::memcpy(&ksz, p, 2);
+    std::memcpy(&child, p + 2, 4);
+    return {
+        std::string_view(reinterpret_cast<const char*>(p + 6), ksz),
+        child,
+    };
+}
+
+uint16_t BTreeNode::lower_bound_internal(std::string_view key) const {
+    const uint16_t n = num_keys();
+    uint16_t lo = 0, hi = n;
+    while (lo < hi) {
+        uint16_t mid = static_cast<uint16_t>(lo + (hi - lo) / 2);
+        if (internal_entry(mid).key < key) {
+            lo = static_cast<uint16_t>(mid + 1);
+        } else {
+            hi = mid;
+        }
+    }
+    return lo;
+}
+
+bool BTreeNode::internal_insert(std::string_view key, PageId right_child) {
+    const size_t rec_size = internal_record_size(key.size());
+    if (rec_size + kSlotSize > free_space()) return false;
+
+    NodeHeader h = read_node_header();
+    uint16_t i = lower_bound_internal(key);
+
+    if (i < h.num_keys && internal_entry(i).key == key) {
+        return false;  // duplicate separator — caller bug
+    }
+
+    const uint16_t new_data_offset = static_cast<uint16_t>(h.data_offset - rec_size);
+    uint8_t* p = page_.data() + new_data_offset;
+    const uint16_t ksz = static_cast<uint16_t>(key.size());
+    const uint32_t child = static_cast<uint32_t>(right_child);
+    std::memcpy(p, &ksz, 2);
+    p += 2;
+    std::memcpy(p, &child, 4);
+    p += 4;
+    std::memcpy(p, key.data(), ksz);
+
+    for (int j = h.num_keys; j > i; --j) {
+        set_slot(static_cast<uint16_t>(j), get_slot(static_cast<uint16_t>(j - 1)));
+    }
+    set_slot(i, new_data_offset);
+
+    h.data_offset = new_data_offset;
+    h.num_keys = static_cast<uint16_t>(h.num_keys + 1);
+    write_node_header(h);
+    return true;
+}
+
+BTreeNode::PageId BTreeNode::internal_find_child(std::string_view key) const {
+    PageId child = link();  // leftmost (keys < k[0])
+    const uint16_t n = num_keys();
+    for (uint16_t i = 0; i < n; ++i) {
+        auto e = internal_entry(i);
+        if (e.key > key) break;
+        child = e.right_child;
+    }
+    return child;
+}
+
+std::string BTreeNode::internal_split_into(BTreeNode& right) {
+    NodeHeader h = read_node_header();
+    const uint16_t n = h.num_keys;
+    const uint16_t mid = static_cast<uint16_t>(n / 2);
+
+    auto median = internal_entry(mid);
+    std::string sep(median.key);
+
+    // right's leftmost (link) = median's right_child
+    NodeHeader rh = right.read_node_header();
+    rh.link = median.right_child;
+    right.write_node_header(rh);
+
+    for (uint16_t i = static_cast<uint16_t>(mid + 1); i < n; ++i) {
+        auto e = internal_entry(i);
+        if (!right.internal_insert(e.key, e.right_child)) {
+            throw std::runtime_error("internal_split: right cannot fit upper half");
+        }
+    }
+
+    h = read_node_header();
+    h.num_keys = mid;
+    write_node_header(h);
+
+    return sep;
 }
 
 }  // namespace wdb::index
