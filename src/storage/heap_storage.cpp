@@ -6,85 +6,92 @@
 
 namespace wdb::storage {
 
-HeapStorage::HeapStorage(FileManager& fm) : fm_(fm) {}
+HeapStorage::HeapStorage(FileManager &fm) : fm_(fm) {}
 
 void HeapStorage::tombstone_all(std::string_view key) {
-    for (Page::PageId id = 1; id < fm_.num_pages(); ++id) {
-        Page p;
-        fm_.read_page(id, p);
-        if (p.type() != PageType::Data) continue;
-        if (p.tombstone(key)) {
-            fm_.write_page(p);
-        }
+  for (Page::PageId id = 1; id < fm_.num_pages(); ++id) {
+    Page p;
+    fm_.read_page(id, p);
+    if (p.type() != PageType::Data)
+      continue;
+    if (p.tombstone(key)) {
+      fm_.write_page(p);
     }
+  }
 }
 
 void HeapStorage::put(std::string_view key, std::string_view value) {
-    // Phase 2 has no key→page index; every put walks all data pages twice
-    // (once to tombstone the prior live entry, once to find space). This is
-    // O(N) reads + writes per put, by design. Phase 3 (B+ tree index) replaces
-    // both passes with a single tree lookup.
-    tombstone_all(key);
+  // Phase 2 has no key→page index; every put walks all data pages twice
+  // (once to tombstone the prior live entry, once to find space). This is
+  // O(N) reads + writes per put, by design. Phase 3 (B+ tree index) replaces
+  // both passes with a single tree lookup.
+  tombstone_all(key);
 
-    const size_t need = encoded_record_size(key.size(), value.size());
-    if (need > kPageSize - sizeof(PageHeader)) {
-        throw std::runtime_error("record larger than a single page");
-    }
+  const size_t need = encoded_record_size(key.size(), value.size());
+  if (need > kPageSize - sizeof(PageHeader)) {
+    throw std::runtime_error("record larger than a single page");
+  }
 
-    // Try existing data pages.
-    for (Page::PageId id = 1; id < fm_.num_pages(); ++id) {
-        Page p;
-        fm_.read_page(id, p);
-        if (p.type() != PageType::Data) continue;
-        if (p.free_space() < need) continue;
-        if (p.append_record(key, value)) {
-            fm_.write_page(p);
-            return;
-        }
-    }
-
-    // No room — allocate a new data page.
-    const Page::PageId new_id = fm_.allocate_page(PageType::Data);
+  // Try existing data pages.
+  for (Page::PageId id = 1; id < fm_.num_pages(); ++id) {
     Page p;
-    fm_.read_page(new_id, p);
-    if (!p.append_record(key, value)) {
-        throw std::runtime_error("append_record failed on a fresh page");
+    fm_.read_page(id, p);
+    if (p.type() != PageType::Data)
+      continue;
+    if (p.free_space() < need)
+      continue;
+    if (p.append_record(key, value)) {
+      fm_.write_page(p);
+      return;
     }
-    fm_.write_page(p);
+  }
+
+  // No room — allocate a new data page.
+  const Page::PageId new_id = fm_.allocate_page(PageType::Data);
+  Page p;
+  fm_.read_page(new_id, p);
+  if (!p.append_record(key, value)) {
+    throw std::runtime_error("append_record failed on a fresh page");
+  }
+  fm_.write_page(p);
 }
 
 std::optional<std::string> HeapStorage::get(std::string_view key) const {
-    for (Page::PageId id = 1; id < fm_.num_pages(); ++id) {
-        Page p;
-        fm_.read_page(id, p);
-        if (p.type() != PageType::Data) continue;
-        if (auto v = p.find(key)) return v;
-    }
-    return std::nullopt;
+  for (Page::PageId id = 1; id < fm_.num_pages(); ++id) {
+    Page p;
+    fm_.read_page(id, p);
+    if (p.type() != PageType::Data)
+      continue;
+    if (auto v = p.find(key))
+      return v;
+  }
+  return std::nullopt;
 }
 
 bool HeapStorage::del(std::string_view key) {
-    bool any = false;
-    for (Page::PageId id = 1; id < fm_.num_pages(); ++id) {
-        Page p;
-        fm_.read_page(id, p);
-        if (p.type() != PageType::Data) continue;
-        if (p.tombstone(key)) {
-            fm_.write_page(p);
-            any = true;
-        }
+  bool any = false;
+  for (Page::PageId id = 1; id < fm_.num_pages(); ++id) {
+    Page p;
+    fm_.read_page(id, p);
+    if (p.type() != PageType::Data)
+      continue;
+    if (p.tombstone(key)) {
+      fm_.write_page(p);
+      any = true;
     }
-    return any;
+  }
+  return any;
 }
 
 size_t HeapStorage::num_data_pages() const {
-    size_t cnt = 0;
-    for (Page::PageId id = 1; id < fm_.num_pages(); ++id) {
-        Page p;
-        fm_.read_page(id, p);
-        if (p.type() == PageType::Data) ++cnt;
-    }
-    return cnt;
+  size_t cnt = 0;
+  for (Page::PageId id = 1; id < fm_.num_pages(); ++id) {
+    Page p;
+    fm_.read_page(id, p);
+    if (p.type() == PageType::Data)
+      ++cnt;
+  }
+  return cnt;
 }
 
-}  // namespace wdb::storage
+} // namespace wdb::storage
