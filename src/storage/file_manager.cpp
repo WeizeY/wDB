@@ -14,7 +14,7 @@ namespace wdb::storage {
 
 namespace {
 
-constexpr uint32_t kMagic = 0x77444221;  // 'wDB!'
+constexpr uint32_t kMetaMagic = 0x77444221;  // 'wDB!'
 constexpr uint16_t kVersion = 1;
 
 struct MetaPayload {
@@ -23,6 +23,7 @@ struct MetaPayload {
     uint16_t reserved;
     uint32_t num_pages;
 };
+static_assert(sizeof(MetaPayload) == 12, "MetaPayload must be 12 bytes");
 
 }  // namespace
 
@@ -52,7 +53,7 @@ void FileManager::init_or_load_meta() {
         // Fresh database. Create meta page with num_pages = 1 (just the meta page).
         Page meta;
         meta.init(kMetaPageId, PageType::Meta);
-        const MetaPayload mp{kMagic, kVersion, 0, 1};
+        const MetaPayload mp{kMetaMagic, kVersion, 0, 1};
         std::memcpy(meta.data() + sizeof(PageHeader), &mp, sizeof(mp));
         num_pages_ = 1;
         write_page(meta);
@@ -77,7 +78,7 @@ void FileManager::read_meta() {
 
     MetaPayload mp;
     std::memcpy(&mp, meta.data() + sizeof(PageHeader), sizeof(mp));
-    if (mp.magic != kMagic) {
+    if (mp.magic != kMetaMagic) {
         throw std::runtime_error("not a wDB file (bad magic)");
     }
     if (mp.version != kVersion) {
