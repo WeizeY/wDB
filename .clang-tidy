@@ -1,0 +1,16 @@
+---
+Checks: >
+  bugprone-*,
+  cert-*,
+  clang-analyzer-*,
+  performance-*,
+  portability-*,
+  readability-redundant-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
+  -bugprone-exception-escape,
+  -cert-err58-cpp
+
+WarningsAsErrors: ''
+HeaderFilterRegex: '^src/.*\.h$'
+FormatStyle: file
