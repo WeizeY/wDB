@@ -1,0 +1,154 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: Build & Test (Debug + ASan/UBSan)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build libgtest-dev libgmock-dev
+
+      - name: Configure
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -S .
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        working-directory: build
+        run: ctest --output-on-failure -j$(nproc)
+
+  build-release:
+    name: Build (Release)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build libgtest-dev libgmock-dev
+
+      - name: Configure
+        run: cmake -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -S .
+
+      - name: Build
+        run: cmake --build build-release
+
+      - name: Test
+        working-directory: build-release
+        run: ctest --output-on-failure -j$(nproc)
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build libgtest-dev libgmock-dev gcovr lcov
+
+      - name: Configure (coverage)
+        run: cmake -B build-coverage -G Ninja -DWDB_COVERAGE=ON -DCMAKE_BUILD_TYPE=Debug -S .
+
+      - name: Build
+        run: cmake --build build-coverage
+
+      - name: Test
+        working-directory: build-coverage
+        run: ctest --output-on-failure -j$(nproc)
+
+      - name: Generate report
+        run: |
+          mkdir -p build-coverage/coverage-html
+          gcovr --root . \
+                --filter '^src/' \
+                --exclude '.*main\.cpp' \
+                --exclude '.*\.h$' \
+                --print-summary \
+                --txt build-coverage/coverage.txt \
+                --html-details build-coverage/coverage-html/index.html \
+                --cobertura build-coverage/coverage.xml
+
+      - name: Post coverage summary
+        run: |
+          {
+            echo "## Coverage"
+            echo
+            echo '```'
+            cat build-coverage/coverage.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload HTML report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: build-coverage/coverage-html/
+          retention-days: 14
+
+      - name: Upload Cobertura XML
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-cobertura
+          path: build-coverage/coverage.xml
+          retention-days: 14
+
+  format:
+    name: clang-format
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install clang-format
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang-format
+
+      - name: Check formatting
+        run: |
+          find src tests -type f \( -name '*.h' -o -name '*.cpp' \) -print0 \
+            | xargs -0 clang-format --dry-run --Werror
+
+  tidy:
+    name: clang-tidy
+    runs-on: ubuntu-24.04
+    continue-on-error: true  # advisory until backlog is cleaned up
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build libgtest-dev libgmock-dev clang-tidy
+
+      - name: Generate compile_commands.json
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -S .
+
+      - name: Run clang-tidy
+        run: |
+          find src -type f -name '*.cpp' -print0 \
+            | xargs -0 -n1 clang-tidy -p build
