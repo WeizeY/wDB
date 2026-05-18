@@ -57,7 +57,8 @@ int main(int argc, char **argv) {
           print_help();
         } else if (cmd == "STAT") {
           std::cout << "pages=" << db.num_pages()
-                    << " data_pages=" << db.num_data_pages() << "\n";
+                    << " btree_root=" << db.btree_root()
+                    << " wal_bytes=" << db.wal_size() << "\n";
         } else if (cmd == "PUT") {
           std::string key;
           iss >> key;

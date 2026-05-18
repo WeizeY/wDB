@@ -1,7 +1,7 @@
 #pragma once
 
+#include "index/btree.h"
 #include "storage/file_manager.h"
-#include "storage/heap_storage.h"
 #include "wal/wal.h"
 
 #include <cstddef>
@@ -11,26 +11,28 @@
 
 namespace wdb {
 
-// Top-level facade. Phase 2: file_manager + heap_storage + WAL.
+// Top-level facade. Phase 3: file_manager + B+ tree + WAL.
 // Open path: data file at `path`, WAL at `path + ".wal"`.
-// On construction, WAL is replayed into heap before returning.
+// On construction, WAL is replayed into the tree before returning.
 class Database {
 public:
-  explicit Database(const std::string &path);
+    explicit Database(const std::string& path);
 
-  void put(std::string_view key, std::string_view value);
-  std::optional<std::string> get(std::string_view key) const;
-  bool del(std::string_view key);
+    void put(std::string_view key, std::string_view value);
+    std::optional<std::string> get(std::string_view key) const;
+    bool del(std::string_view key);
 
-  // Diagnostics.
-  size_t num_pages() const { return fm_.num_pages(); }
-  size_t num_data_pages() const { return heap_.num_data_pages(); }
-  uint64_t wal_size() const { return wal_.size_bytes(); }
+    // Diagnostics.
+    size_t num_pages() const { return fm_.num_pages(); }
+    uint64_t wal_size() const { return wal_.size_bytes(); }
+    index::BTree::PageId btree_root() const { return tree_.root_id(); }
 
 private:
-  storage::FileManager fm_;
-  storage::HeapStorage heap_;
-  wal::Wal wal_;
+    storage::FileManager fm_;
+    index::BTree tree_;
+    wal::Wal wal_;
+
+    void sync_root_if_changed();
 };
 
-} // namespace wdb
+}  // namespace wdb
