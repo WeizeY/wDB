@@ -1,0 +1,8 @@
+---
+Language: Cpp
+BasedOnStyle: LLVM
+ColumnLimit: 100
+DerivePointerAlignment: false
+PointerAlignment: Right
+IndentCaseLabels: false
+IncludeBlocks: Preserve

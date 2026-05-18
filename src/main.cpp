@@ -31,8 +31,7 @@ int main(int argc, char **argv) {
 
   try {
     wdb::Database db(path);
-    std::cout << "wDB v0.1 — opened " << path << " (pages=" << db.num_pages()
-              << ")\n";
+    std::cout << "wDB v0.1 — opened " << path << " (pages=" << db.num_pages() << ")\n";
     std::cout << "Type HELP for commands.\n";
 
     std::string line;
@@ -56,8 +55,7 @@ int main(int argc, char **argv) {
         } else if (cmd == "HELP") {
           print_help();
         } else if (cmd == "STAT") {
-          std::cout << "pages=" << db.num_pages()
-                    << " btree_root=" << db.btree_root()
+          std::cout << "pages=" << db.num_pages() << " btree_root=" << db.btree_root()
                     << " wal_bytes=" << db.wal_size() << "\n";
         } else if (cmd == "PUT") {
           std::string key;

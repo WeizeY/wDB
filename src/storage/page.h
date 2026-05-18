@@ -25,8 +25,7 @@ struct PageHeader {
   uint32_t page_id;
   PageType page_type;
   uint16_t num_records;
-  uint16_t
-      free_space_offset; // bytes used from page start (where next record goes)
+  uint16_t free_space_offset; // bytes used from page start (where next record goes)
   uint16_t reserved;
   uint32_t checksum;
   uint64_t lsn; // unused in Phase 1, reserved for WAL

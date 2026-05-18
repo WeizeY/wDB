@@ -27,13 +27,9 @@ PageHeader Page::header() const {
   return h;
 }
 
-void Page::set_header(const PageHeader &h) {
-  std::memcpy(buf_.data(), &h, sizeof(PageHeader));
-}
+void Page::set_header(const PageHeader &h) { std::memcpy(buf_.data(), &h, sizeof(PageHeader)); }
 
-size_t Page::free_space() const {
-  return kPageSize - header().free_space_offset;
-}
+size_t Page::free_space() const { return kPageSize - header().free_space_offset; }
 
 bool Page::append_record(std::string_view key, std::string_view value) {
   if (key.size() > std::numeric_limits<uint16_t>::max())
@@ -93,10 +89,8 @@ std::vector<RecordView> Page::records() const {
 
     RecordView rv;
     rv.flags = flags;
-    rv.key = std::string_view(
-        reinterpret_cast<const char *>(p + kRecordHeaderSize), ksz);
-    rv.value = std::string_view(
-        reinterpret_cast<const char *>(p + kRecordHeaderSize + ksz), vsz);
+    rv.key = std::string_view(reinterpret_cast<const char *>(p + kRecordHeaderSize), ksz);
+    rv.value = std::string_view(reinterpret_cast<const char *>(p + kRecordHeaderSize + ksz), vsz);
     out.push_back(rv);
     off += rec;
   }
@@ -130,8 +124,7 @@ bool Page::tombstone(std::string_view key) {
       break;
 
     if (!(flags & kRecordTombstone)) {
-      std::string_view k(reinterpret_cast<const char *>(p + kRecordHeaderSize),
-                         ksz);
+      std::string_view k(reinterpret_cast<const char *>(p + kRecordHeaderSize), ksz);
       if (k == key) {
         p[0] = static_cast<uint8_t>(flags | kRecordTombstone);
         return true;
@@ -163,8 +156,6 @@ void Page::update_checksum() {
   set_header(h);
 }
 
-bool Page::verify_checksum() const {
-  return header().checksum == compute_checksum();
-}
+bool Page::verify_checksum() const { return header().checksum == compute_checksum(); }
 
 } // namespace wdb::storage

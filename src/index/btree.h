@@ -21,30 +21,30 @@ namespace wdb::index {
 // leaves but underfull leaves are not coalesced.
 class BTree {
 public:
-    using PageId = storage::Page::PageId;
+  using PageId = storage::Page::PageId;
 
-    // root_id == 0 means "no tree yet" — a fresh empty leaf is allocated and
-    // becomes the root.
-    BTree(storage::FileManager& fm, PageId root_id);
+  // root_id == 0 means "no tree yet" — a fresh empty leaf is allocated and
+  // becomes the root.
+  BTree(storage::FileManager &fm, PageId root_id);
 
-    PageId root_id() const { return root_; }
+  PageId root_id() const { return root_; }
 
-    // Returns true if a new key was inserted, false if an existing key was
-    // replaced.
-    bool insert(std::string_view key, std::string_view value);
+  // Returns true if a new key was inserted, false if an existing key was
+  // replaced.
+  bool insert(std::string_view key, std::string_view value);
 
-    std::optional<std::string> get(std::string_view key) const;
+  std::optional<std::string> get(std::string_view key) const;
 
-    // Returns true if the key was present and removed.
-    bool remove(std::string_view key);
+  // Returns true if the key was present and removed.
+  bool remove(std::string_view key);
 
-    // Half-open range scan: emits pairs with from <= k < to, in key order.
-    std::vector<std::pair<std::string, std::string>> range(
-        std::string_view from, std::string_view to) const;
+  // Half-open range scan: emits pairs with from <= k < to, in key order.
+  std::vector<std::pair<std::string, std::string>> range(std::string_view from,
+                                                         std::string_view to) const;
 
 private:
-    storage::FileManager& fm_;
-    PageId root_;
+  storage::FileManager &fm_;
+  PageId root_;
 };
 
-}  // namespace wdb::index
+} // namespace wdb::index

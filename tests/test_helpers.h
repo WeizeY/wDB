@@ -16,8 +16,7 @@ public:
     static std::atomic<uint64_t> counter{0};
     auto n = counter.fetch_add(1, std::memory_order_relaxed);
     path_ = std::filesystem::temp_directory_path() /
-            ("wdb_test_" + std::to_string(::getpid()) + "_" +
-             std::to_string(n) + ".dat");
+            ("wdb_test_" + std::to_string(::getpid()) + "_" + std::to_string(n) + ".dat");
   }
   ~TempFile() {
     std::error_code ec;

@@ -49,8 +49,7 @@ ssize_t pread_full(int fd, void *buf, size_t n, off_t off) {
   size_t total = 0;
   auto *p = static_cast<uint8_t *>(buf);
   while (total < n) {
-    ssize_t r =
-        ::pread(fd, p + total, n - total, off + static_cast<off_t>(total));
+    ssize_t r = ::pread(fd, p + total, n - total, off + static_cast<off_t>(total));
     if (r == 0)
       break; // EOF
     if (r < 0) {
@@ -88,8 +87,7 @@ void Wal::append(OpType op, std::string_view key, std::string_view value) {
 
   const uint16_t ksz = static_cast<uint16_t>(key.size());
   const uint32_t vsz = static_cast<uint32_t>(value.size());
-  const uint32_t payload_len =
-      static_cast<uint32_t>(kPayloadHeaderSize + ksz + vsz);
+  const uint32_t payload_len = static_cast<uint32_t>(kPayloadHeaderSize + ksz + vsz);
 
   // Build a contiguous frame so the single write() is the unit of atomicity.
   std::vector<uint8_t> frame(4 + payload_len + 4);
@@ -189,11 +187,8 @@ std::vector<Record> Wal::replay() {
 
     Record rec;
     rec.op = static_cast<OpType>(op_byte);
-    rec.key.assign(
-        reinterpret_cast<const char *>(buf.data() + kPayloadHeaderSize), ksz);
-    rec.value.assign(
-        reinterpret_cast<const char *>(buf.data() + kPayloadHeaderSize + ksz),
-        vsz);
+    rec.key.assign(reinterpret_cast<const char *>(buf.data() + kPayloadHeaderSize), ksz);
+    rec.value.assign(reinterpret_cast<const char *>(buf.data() + kPayloadHeaderSize + ksz), vsz);
     out.push_back(std::move(rec));
 
     off += record_total;
