@@ -1,7 +1,6 @@
 find_package(GTest REQUIRED)
 include(GoogleTest)
 
-# Helper to register a single-file gtest binary that links specified libs.
 function(wdb_add_test name)
   add_executable(${name} ${name}.cpp)
   target_link_libraries(${name} PRIVATE
@@ -17,4 +16,5 @@ wdb_add_test(test_page          wdb_storage)
 wdb_add_test(test_file_manager  wdb_storage)
 wdb_add_test(test_heap_storage  wdb_storage)
 wdb_add_test(test_wal           wdb_wal)
+wdb_add_test(test_btree_node    wdb_index wdb_storage)
 wdb_add_test(test_database      wdb_db)
